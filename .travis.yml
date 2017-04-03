@@ -1,0 +1,29 @@
+# Note: It seems that cache doesn't work when "sudo: required". :(
+sudo: required
+dist: trusty
+language: node_js
+
+install:
+  # Download and verify alpine-chroot-install script.
+  - wget https://raw.githubusercontent.com/alpinelinux/alpine-chroot-install/v0.2.0/alpine-chroot-install
+      && echo '7c6f0550f02d853d7275cfa82529e62a3a09d629  alpine-chroot-install' | sha1sum -c
+  # Install Alpine Linux into /alpine and prepare there a chroot environment;
+  # use branch edge (i.e. unstable), add testing repository and install
+  # packages for Emscripten.
+  - sudo sh alpine-chroot-install -b edge
+      -r 'https://nl.alpinelinux.org/alpine/edge/testing'
+      -p emscripten -p emscripten-libs-asmjs -p closure-compiler
+
+script:
+  - mkdir -p target/debug target/release
+  # Compile hello_world.c into JavaScript inside the Alpine chroot.
+  # EM_USE_GLOBAL_CACHE=1 tells emscripten to use precompiled libraries from
+  # the emscripten-libs-asmjs package. This speeds up the build significantly.
+  - /alpine/enter-chroot $USER
+      EM_USE_GLOBAL_CACHE=1 emcc -O0 -g4 -o target/debug/hello_world.js hello_world.c
+  - /alpine/enter-chroot $USER
+      EM_USE_GLOBAL_CACHE=1 emcc -Os --closure 1 --memory-init-file 0 --emit-symbol-map
+      -o target/release/hello_world.js hello_world.c
+  # Try to run the created JS file with nodejs on the host system (Ubuntu Trusty).
+  - node target/debug/hello_world.js
+  - node target/release/hello_world.js
