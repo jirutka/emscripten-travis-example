@@ -1,0 +1,31 @@
+= Use Emscripten on (Travis) CI
+:gh-name: jirutka/emscripten-travis-example
+:gh-branch: master
+:uri-pkg-testing: https://pkgs.alpinelinux.org/package/edge/testing/x86_64
+
+ifdef::env-github[]
+image:https://travis-ci.org/{gh-name}.svg?branch={gh-branch}["Build Status", link="https://travis-ci.org/{gh-name}"]
+endif::env-github[]
+
+
+This repository demonstrates how to easily and _quickly_ compile C/C++ code into JavaScript using https://kripken.github.io/emscripten-site/[Emscripten] on https://travis-ci.org/[Travis CI] (or any other CI service).
+
+This solution is based on https://alpinelinux.org/[Alpine Linux] that provides binary packages for Emscripten and related projects, including precompiled system libraries and ports included in Emscripten.
+Builds on Travis CI do not run on Alpine Linux, so we use https://github.com/alpinelinux/alpine-chroot-install[alpine-chroot-install] to install Alpine into a chroot, install needed dependencies and run Emscripten.
+Alpine’s package manager (apk-tools) is _very_ fast, so installation of base system and all packages needed for Emscripten (58 packages in total) takes only 30 seconds on Travis!
+
+Total time is **~1 minute** to prepare build environment, bootstrap Alpine Linux, install all dependencies and compile hello_world.c into asm.js in debug and release mode.
+This is certainly much faster than installing Emscripten using https://kripken.github.io/emscripten-site/docs/tools_reference/emsdk.html[Emscripten SDK]. ;)
+
+
+== Packages
+
+Package {uri-pkg-testing}/emscripten[emscripten] does not include all bundled third-party dependencies, these are in separate packages.
+The required dependencies are installed automatically with _emscripten_, optional dependencies must be installed explicitly.
+
+There’s a list of additional packages that you may need to install:
+
+* {uri-pkg-testing}/emscripten-libs-asmjs[emscripten-libs-asmjs] – Prebuilt libraries and ports for Emscripten - asm.js
+* {uri-pkg-testing}/emscripten-libs-wasm[emscripten-libs-wasm] – Prebuilt libraries and ports for Emscripten - WebAssembly
+* {uri-pkg-testing}/closure-compiler[closure-compiler] – A JavaScript checker and optimizer (needed if you use option `--closure`)
+* {uri-pkg-testing}/binaryen[binaryen] – Compiler infrastructure and toolchain library for WebAssembly, in C++ (needed if you want to produce WebAssembly)
