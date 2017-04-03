@@ -2,6 +2,9 @@
 sudo: required
 dist: trusty
 language: node_js
+env:
+  global:
+    - PROJ_NAME=hello_world
 
 install:
   # Download and verify alpine-chroot-install script.
@@ -20,10 +23,30 @@ script:
   # EM_USE_GLOBAL_CACHE=1 tells emscripten to use precompiled libraries from
   # the emscripten-libs-asmjs package. This speeds up the build significantly.
   - /alpine/enter-chroot $USER
-      EM_USE_GLOBAL_CACHE=1 emcc -O0 -g4 -o target/debug/hello_world.js hello_world.c
+      EM_USE_GLOBAL_CACHE=1 emcc -O0 -g4 -o target/debug/$PROJ_NAME.js hello_world.c
   - /alpine/enter-chroot $USER
       EM_USE_GLOBAL_CACHE=1 emcc -Os --closure 1 --memory-init-file 0 --emit-symbol-map
-      -o target/release/hello_world.js hello_world.c
+      -o target/release/$PROJ_NAME.js hello_world.c
   # Try to run the created JS file with nodejs on the host system (Ubuntu Trusty).
-  - node target/debug/hello_world.js
-  - node target/release/hello_world.js
+  - node target/debug/$PROJ_NAME.js
+  - node target/release/$PROJ_NAME.js
+
+before_deploy: |
+  for build in debug release; do
+      mkdir target/$build/$PROJ_NAME
+      ( cd target/$build \
+          && mv *.js* $PROJ_NAME/ \
+          && tar -czf $PROJ_NAME-${TRAVIS_TAG#v}-$build.tgz $PROJ_NAME )
+  done
+
+deploy:
+  - provider: releases
+    api_key:
+      secure: "w7wbM/K/Hta8+CxSLpEJ+RKK3gfR8Qt5cBHgy13ZDvYugBrKOQL5Mm31+ddng5kqRta8Oqh8bwWPWTZeTRvNcEPsmuuf9rwBVQ6KycrIKVGZwWhgWzPENzARWFZ/ioSgt70vqN/hgZbfJB9+KXzsvUlmU54u9/luPrXljPdZElE4AfvZejVfHmtpS9SUT8s0uTVpbtFCAe53sUik3c8a0cn7C80D0JSRh2vMhnm8q6gNRqtCtsGoVVU2PRZyc/ovKLaQ22B4YIL0mIqWBZLDCNcVPtoDhbwzvSc1OnETDBWOJUZ9eVfG550VRgziGznOyYCJmO+ebMT5YHHNm234bTZN1WNaJ4XY6QypEQdBuUB6Dssdf2Ro4SJ+fAfndtMZVsVLK6kFzjM66XkvBWiLZQ0zhJ9qDpxOArBCZwuVPefTyMRfD2unze9mUw1nbUj9kaEVtVb0bhtbLDSKcE9g+AJMzUHu6Lrl2SJpcnaHwe+RJp1er5akey/kV/WRbeMnlcS6B/jJ3IquVqjnfMxL3XPRXv+S84JZJxgkFn4XjAot6qqv7BRBj0JOa6AWDwcaVSgAck7qu1j7ja6y8lEb4vB3pmMJpscwp4HBBo9DEEqRA3k+GQh42dF6Gc1ltiJf/TpX94Nltv4l36CYVh9v5QvvGVJaoGjZ8XsDZe3frek="
+    file:
+      - target/debug/*.tgz
+      - target/release/*.tgz
+    file_glob: true
+    skip_cleanup: true
+    on:
+      tags: true
