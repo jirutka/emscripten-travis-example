@@ -8,24 +8,25 @@ env:
 
 install:
   # Download and verify alpine-chroot-install script.
-  - wget https://raw.githubusercontent.com/alpinelinux/alpine-chroot-install/v0.2.0/alpine-chroot-install
-      && echo '7c6f0550f02d853d7275cfa82529e62a3a09d629  alpine-chroot-install' | sha1sum -c
+  - wget https://raw.githubusercontent.com/alpinelinux/alpine-chroot-install/v0.6.0/alpine-chroot-install
+      && echo 'a827a4ba3d0817e7c88bae17fe34e50204983d1e  alpine-chroot-install' | sha1sum -c
   # Install Alpine Linux into /alpine and prepare there a chroot environment;
-  # use branch edge (i.e. unstable), add testing repository and install
-  # packages for Emscripten.
-  - sudo sh alpine-chroot-install -b edge
+  # add testing repository and install packages for Emscripten.
+  - sudo sh alpine-chroot-install -b v3.6
       -r 'https://nl.alpinelinux.org/alpine/edge/testing'
-      -p emscripten -p emscripten-libs-asmjs -p closure-compiler
+      -p 'emscripten emscripten-libs-asmjs closure-compiler'
+      -k 'CI TRAVIS_.* EM_.*'
 
 script:
   - mkdir -p target/debug target/release
   # Compile hello_world.c into JavaScript inside the Alpine chroot.
   # EM_USE_GLOBAL_CACHE=1 tells emscripten to use precompiled libraries from
   # the emscripten-libs-asmjs package. This speeds up the build significantly.
-  - /alpine/enter-chroot $USER
-      EM_USE_GLOBAL_CACHE=1 emcc -O0 -g4 -o target/debug/$PROJ_NAME.js hello_world.c
-  - /alpine/enter-chroot $USER
-      EM_USE_GLOBAL_CACHE=1 emcc -Os --closure 1 --memory-init-file 0 --emit-symbol-map
+  - export EM_USE_GLOBAL_CACHE=1
+  - /alpine/enter-chroot -u $USER
+      emcc -O0 -g4 -o target/debug/$PROJ_NAME.js hello_world.c
+  - /alpine/enter-chroot -u $USER
+      emcc -Os --closure 1 --memory-init-file 0 --emit-symbol-map
       -o target/release/$PROJ_NAME.js hello_world.c
   # Try to run the created JS file with nodejs on the host system (Ubuntu Trusty).
   - node target/debug/$PROJ_NAME.js
